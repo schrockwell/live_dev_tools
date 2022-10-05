@@ -1,0 +1,2 @@
+defmodule LiveDevTools do
+end

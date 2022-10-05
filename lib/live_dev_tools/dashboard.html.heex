@@ -1,0 +1,7 @@
+<div>
+  <%= if @sources == %{} do %>
+    Waiting for a LiveView to mount...
+  <% else %>
+    <%= inspect(Map.keys(@sources)) %>
+  <% end %>
+</div>
