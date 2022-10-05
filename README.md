@@ -4,8 +4,7 @@
 
 ## Installation
 
-If [available in Hex](https://hex.pm/docs/publish), the package can be installed
-by adding `live_dev_tools` to your list of dependencies in `mix.exs`:
+The package can be installed by adding `live_dev_tools` to your list of dependencies in `mix.exs`:
 
 ```elixir
 def deps do
@@ -15,7 +14,36 @@ def deps do
 end
 ```
 
-Documentation can be generated with [ExDoc](https://github.com/elixir-lang/ex_doc)
-and published on [HexDocs](https://hexdocs.pm). Once published, the docs can
-be found at <https://hexdocs.pm/live_dev_tools>.
+Update the Phoenix macros (do not leave these in for production!!!) to hook into the lifecycles:
 
+```elixir
+# lib/my_app_web.ex
+
+defmodule MyAppWeb do
+  def live_component do
+    quote do
+      use LiveDevTools.LiveComponent
+    end
+  end
+
+  def live_view do
+    quote do
+      use LiveDevTools.LiveView
+    end
+  end
+end
+```
+
+Add the page to the Dashboard:
+
+```elixir
+# lib/my_app_web/router.ex
+
+live_dashboard "/live_dashboard",
+  metrics: MyAppWeb.Telemetry,
+  additional_pages: [
+    dev_tools: LiveDevTools.DashboardPage
+  ]
+```
+
+Open up the dashboard, then visit any any LiveView in another tab.
