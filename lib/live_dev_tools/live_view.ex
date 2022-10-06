@@ -1,5 +1,6 @@
 defmodule LiveDevTools.LiveView do
   alias LiveDevTools.Events
+  alias LiveDevTools.LiveViewSource
   alias LiveDevTools.Messaging
   import Phoenix.LiveView
 
@@ -32,9 +33,8 @@ defmodule LiveDevTools.LiveView do
 
       Messaging.send_to_dashboards(%Events.Mount{
         params: params,
-        pid: self(),
         session: session,
-        source: module
+        source: %LiveViewSource{pid: self(), module: module}
       })
 
       {:cont, socket}
@@ -46,16 +46,14 @@ defmodule LiveDevTools.LiveView do
   def render_hook(module, assigns) do
     Messaging.send_to_dashboards(%Events.Render{
       assigns: assigns,
-      pid: self(),
-      source: module
+      source: %LiveViewSource{pid: self(), module: module}
     })
   end
 
   def handle_info_hook(module, message, socket) do
     Messaging.send_to_dashboards(%Events.HandleInfo{
       message: message,
-      pid: self(),
-      source: module
+      source: %LiveViewSource{pid: self(), module: module}
     })
 
     {:cont, socket}
@@ -64,20 +62,27 @@ defmodule LiveDevTools.LiveView do
   def handle_params_hook(module, params, uri, socket) do
     Messaging.send_to_dashboards(%Events.HandleParams{
       params: params,
-      pid: self(),
-      source: module,
+      source: %LiveViewSource{pid: self(), module: module},
       uri: uri
     })
 
     {:cont, socket}
   end
 
+  def handle_event_hook(module, "__new_cids__", %{"cids" => cids}, socket) do
+    Messaging.send_to_dashboards(%Events.Cids{
+      cids: cids,
+      source: %LiveViewSource{pid: self(), module: module}
+    })
+
+    {:halt, socket}
+  end
+
   def handle_event_hook(module, event, params, socket) do
     Messaging.send_to_dashboards(%Events.HandleEvent{
       event: event,
       params: params,
-      pid: self(),
-      source: module
+      source: %LiveViewSource{pid: self(), module: module}
     })
 
     {:cont, socket}

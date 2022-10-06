@@ -2,6 +2,15 @@
   <%= if @sources == %{} do %>
     Waiting for a LiveView to mount...
   <% else %>
+    <div>
+      <form phx-change="form-changed">
+        <select name="source">
+          <%= for {source, _} <- @sources do %>
+            <option value={source_name(source)}><%= source_name(source) %></option>
+          <% end %>
+        </select>
+      </form>
+    </div>
     <%= inspect(Map.keys(@sources)) %>
   <% end %>
 </div>

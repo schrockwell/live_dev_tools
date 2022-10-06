@@ -4,8 +4,9 @@ defmodule LiveDevTools.DashboardPage do
   use Phoenix.LiveDashboard.PageBuilder
   alias Phoenix.LiveDashboard.PageBuilder
 
-  import LiveDevTools.Guards
   alias LiveDevTools.Events
+  alias LiveDevTools.LiveComponentSource
+  alias LiveDevTools.LiveViewSource
   alias LiveDevTools.Messaging
 
   @impl PageBuilder
@@ -21,41 +22,27 @@ defmodule LiveDevTools.DashboardPage do
 
   @impl PageBuilder
   def handle_info(%Events.Mount{} = event, socket) do
-    if is_live_view(event.source) do
-      Process.monitor(event.pid)
+    with %LiveViewSource{pid: pid} <- event.source do
+      Process.monitor(pid)
     end
 
     source = %{
-      id: event.pid,
       log: [event]
     }
 
-    sources = Map.put(socket.assigns.sources, source_key(event), source)
+    sources = Map.put(socket.assigns.sources, event.source, source)
 
     {:noreply, assign(socket, sources: sources)}
   end
 
-  def handle_info(%Events.Render{pid: pid} = event, socket) do
-    if tracked_source?(event, socket) do
-      # DANGER: phoenix_live_view internal implementation details - should version-control this
-      # or figure out another way!
-      %{components: components} = :sys.get_state(event.pid)
-      cids = Map.keys(elem(components, 0))
+  def handle_info(%Events.Cids{source: %{pid: pid}, cids: cids}, socket) do
+    filtered_sources =
+      Map.filter(socket.assigns.sources, fn
+        {%LiveComponentSource{pid: ^pid, cid: %{cid: cid}}, _} -> cid in cids
+        _ -> true
+      end)
 
-      # Reject all cids that are no longer relevant
-      filtered_sources =
-        Map.filter(socket.assigns.sources, fn
-          {{^pid, {_module, %{cid: cid}}}, _} -> cid in cids
-          _ -> true
-        end)
-
-      {:noreply,
-       socket
-       |> assign(:sources, filtered_sources)
-       |> append_event(event)}
-    else
-      {:noreply, socket}
-    end
+    {:noreply, assign(socket, :sources, filtered_sources)}
   end
 
   def handle_info(%struct{} = event, socket)
@@ -75,11 +62,17 @@ defmodule LiveDevTools.DashboardPage do
   end
 
   def handle_info({:DOWN, _ref, :process, pid, _reason}, socket) do
-    new_sources = Map.reject(socket.assigns.sources, fn {{key_pid, _}, _} -> key_pid == pid end)
+    new_sources = Map.reject(socket.assigns.sources, fn {%{pid: key_pid}, _} -> key_pid == pid end)
     {:noreply, assign(socket, :sources, new_sources)}
   end
 
   def handle_info(_message, socket) do
+    {:noreply, socket}
+  end
+
+  @impl PageBuilder
+  def handle_event("form-changed", params, socket) do
+    IO.inspect(params)
     {:noreply, socket}
   end
 
@@ -93,13 +86,9 @@ defmodule LiveDevTools.DashboardPage do
     {LiveDevTools.Dashboard, %{id: "live-dev-tools-dashboard", sources: assigns.sources}}
   end
 
-  defp source_key(event) do
-    {event.pid, event.source}
-  end
-
   defp append_event(socket, event) do
     new_sources =
-      Map.update!(socket.assigns.sources, source_key(event), fn info ->
+      Map.update!(socket.assigns.sources, event.source, fn info ->
         %{info | log: [event | info.log]}
       end)
 
@@ -107,6 +96,6 @@ defmodule LiveDevTools.DashboardPage do
   end
 
   defp tracked_source?(event, socket) do
-    source_key(event) in Map.keys(socket.assigns.sources)
+    event.source in Map.keys(socket.assigns.sources)
   end
 end

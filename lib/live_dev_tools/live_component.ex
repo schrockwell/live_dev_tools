@@ -1,4 +1,6 @@
 defmodule LiveDevTools.LiveComponent do
+  alias LiveDevTools.LiveComponentSource
+
   defmacro __using__(_) do
     quote do
       @before_compile LiveDevTools.LiveComponent
@@ -22,8 +24,7 @@ defmodule LiveDevTools.LiveComponent do
         def mount(socket) do
           if connected?(socket) do
             LiveDevTools.Messaging.send_to_dashboards(%LiveDevTools.Events.Mount{
-              pid: self(),
-              source: {__MODULE__, socket.assigns.myself}
+              source: %LiveComponentSource{pid: self(), module: __MODULE__, cid: socket.assigns.myself}
             })
           end
 
@@ -35,8 +36,7 @@ defmodule LiveDevTools.LiveComponent do
         def mount(socket) do
           if connected?(socket) do
             LiveDevTools.Messaging.send_to_dashboards(%LiveDevTools.Events.Mount{
-              pid: self(),
-              source: {__MODULE__, socket.assigns.myself}
+              source: %LiveComponentSource{pid: self(), module: __MODULE__, cid: socket.assigns.myself}
             })
           end
 
@@ -54,8 +54,7 @@ defmodule LiveDevTools.LiveComponent do
         def update(assigns, socket) do
           LiveDevTools.Messaging.send_to_dashboards(%LiveDevTools.Events.Update{
             assigns: assigns,
-            pid: self(),
-            source: {__MODULE__, socket.assigns.myself}
+            source: %LiveComponentSource{pid: self(), module: __MODULE__, cid: socket.assigns.myself}
           })
 
           super(assigns, socket)
@@ -66,8 +65,7 @@ defmodule LiveDevTools.LiveComponent do
         def update(assigns, socket) do
           LiveDevTools.Messaging.send_to_dashboards(%LiveDevTools.Events.Update{
             assigns: assigns,
-            pid: self(),
-            source: {__MODULE__, socket.assigns.myself}
+            source: %LiveComponentSource{pid: self(), module: __MODULE__, cid: socket.assigns.myself}
           })
 
           {:ok, assign(socket, assigns)}
@@ -85,8 +83,7 @@ defmodule LiveDevTools.LiveComponent do
           LiveDevTools.Messaging.send_to_dashboards(%LiveDevTools.Events.HandleEvent{
             event: event,
             params: params,
-            pid: self(),
-            source: {__MODULE__, socket.assigns.myself}
+            source: %LiveComponentSource{pid: self(), module: __MODULE__, cid: socket.assigns.myself}
           })
 
           super(event, params, socket)
@@ -98,8 +95,7 @@ defmodule LiveDevTools.LiveComponent do
           LiveDevTools.Messaging.send_to_dashboards(%LiveDevTools.Events.HandleEvent{
             event: event,
             params: params,
-            pid: self(),
-            source: {__MODULE__, socket.assigns.myself}
+            source: %LiveComponentSource{pid: self(), module: __MODULE__, cid: socket.assigns.myself}
           })
 
           {:noreply, socket}
@@ -115,8 +111,7 @@ defmodule LiveDevTools.LiveComponent do
       def render(assigns) do
         LiveDevTools.Messaging.send_to_dashboards(%LiveDevTools.Events.Render{
           assigns: assigns,
-          pid: self(),
-          source: {__MODULE__, assigns.id}
+          source: %LiveComponentSource{pid: self(), module: __MODULE__, cid: assigns.myself}
         })
 
         super(assigns)
