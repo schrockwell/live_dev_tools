@@ -27,7 +27,9 @@ defmodule LiveDevTools.DashboardPage do
     end
 
     source = %{
-      log: [event]
+      log: [event],
+      parent_cid: nil,
+      dom_id: nil
     }
 
     sources = Map.put(socket.assigns.sources, event.source, source)
@@ -35,14 +37,28 @@ defmodule LiveDevTools.DashboardPage do
     {:noreply, assign(socket, sources: sources)}
   end
 
-  def handle_info(%Events.Cids{source: %{pid: pid}, cids: cids}, socket) do
-    filtered_sources =
-      Map.filter(socket.assigns.sources, fn
-        {%LiveComponentSource{pid: ^pid, cid: %{cid: cid}}, _} -> cid in cids
-        _ -> true
-      end)
+  def handle_info(%Events.DomComponents{source: %{pid: pid}, components: components}, socket) do
+    updated_sources =
+      socket.assigns.sources
+      |> Enum.flat_map(fn
+        {%LiveComponentSource{pid: ^pid, cid: cid} = source, info} ->
+          component = Enum.find(components, &(&1.cid == cid))
 
-    {:noreply, assign(socket, :sources, filtered_sources)}
+          if component do
+            # This component info is a known pid and cid, so update it
+            [{source, %{info | parent_cid: component.parent_cid, dom_id: component.dom_id}}]
+          else
+            # The the cid went away, so discard it
+            []
+          end
+
+        other ->
+          # This is a LiveComponent for another pid OR a LiveView, so keep it
+          [other]
+      end)
+      |> Map.new()
+
+    {:noreply, assign(socket, sources: updated_sources)}
   end
 
   def handle_info(%struct{} = event, socket)
@@ -50,7 +66,6 @@ defmodule LiveDevTools.DashboardPage do
              Events.HandleEvent,
              Events.HandleInfo,
              Events.HandleParams,
-             Events.Mount,
              Events.Render,
              Events.Update
            ] do

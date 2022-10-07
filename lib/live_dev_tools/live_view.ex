@@ -69,9 +69,18 @@ defmodule LiveDevTools.LiveView do
     {:cont, socket}
   end
 
-  def handle_event_hook(module, "__new_cids__", %{"cids" => cids}, socket) do
-    Messaging.send_to_dashboards(%Events.Cids{
-      cids: cids,
+  def handle_event_hook(module, "__dom_components__", %{"components" => components}, socket) do
+    components =
+      for %{"cid" => cid, "parent_cid" => parent_cid, "dom_id" => dom_id} <- components do
+        %{
+          cid: cid,
+          parent_cid: parent_cid,
+          dom_id: dom_id
+        }
+      end
+
+    Messaging.send_to_dashboards(%Events.DomComponents{
+      components: components,
       source: %LiveViewSource{pid: self(), module: module}
     })
 
