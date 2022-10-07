@@ -1,15 +1,9 @@
 <div>
   <%= if @views == [] do %>
     Waiting for a LiveView to mount...
-  <% else %>
-    <div>
-      <form phx-change="form-changed">
-        <select name="source">
-          <%= for view <- @views do %>
-            <option value={source_name(view)}><%= source_name(view) %></option>
-          <% end %>
-        </select>
-      </form>
-    </div>
+  <% end %>
+
+  <%= for view <- live_views(@views) do %>
+    <.live_component module={SourceNode} id={source_slug(view)} views={@views} view={view} expanded?={true} />
   <% end %>
 </div>

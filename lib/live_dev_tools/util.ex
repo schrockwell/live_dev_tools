@@ -1,7 +1,7 @@
 defmodule LiveDevTools.Util do
   @moduledoc false
 
-  def module_name(module) do
+  def module_name(module) when is_atom(module) do
     Application.get_env(:live_dev_tools, :prefixes, [])
     |> Enum.map(fn prefix -> "#{inspect(prefix)}." end)
     |> Enum.find(fn prefix ->
