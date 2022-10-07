@@ -1,6 +1,5 @@
 defmodule LiveDevTools.LiveView do
   alias LiveDevTools.Events
-  alias LiveDevTools.LiveViewSource
   alias LiveDevTools.Messaging
   import Phoenix.LiveView
 
@@ -32,9 +31,10 @@ defmodule LiveDevTools.LiveView do
         |> attach_hook(:live_dev_tools_handle_event, :handle_event, &handle_event_hook(module, &1, &2, &3))
 
       Messaging.send_to_dashboards(%Events.Mount{
+        module: module,
         params: params,
         session: session,
-        source: %LiveViewSource{pid: self(), module: module}
+        source: %{pid: self(), cid: nil}
       })
 
       {:cont, socket}
@@ -43,33 +43,33 @@ defmodule LiveDevTools.LiveView do
     end
   end
 
-  def render_hook(module, assigns) do
+  def render_hook(_module, assigns) do
     Messaging.send_to_dashboards(%Events.Render{
       assigns: assigns,
-      source: %LiveViewSource{pid: self(), module: module}
+      source: %{pid: self(), cid: nil}
     })
   end
 
-  def handle_info_hook(module, message, socket) do
+  def handle_info_hook(_module, message, socket) do
     Messaging.send_to_dashboards(%Events.HandleInfo{
       message: message,
-      source: %LiveViewSource{pid: self(), module: module}
+      source: %{pid: self(), cid: nil}
     })
 
     {:cont, socket}
   end
 
-  def handle_params_hook(module, params, uri, socket) do
+  def handle_params_hook(_module, params, uri, socket) do
     Messaging.send_to_dashboards(%Events.HandleParams{
       params: params,
-      source: %LiveViewSource{pid: self(), module: module},
+      source: %{pid: self(), cid: nil},
       uri: uri
     })
 
     {:cont, socket}
   end
 
-  def handle_event_hook(module, "__dom_components__", %{"components" => components}, socket) do
+  def handle_event_hook(_module, "__dom_components__", %{"components" => components}, socket) do
     components =
       for %{"cid" => cid, "parent_cid" => parent_cid, "dom_id" => dom_id} <- components do
         %{
@@ -81,17 +81,17 @@ defmodule LiveDevTools.LiveView do
 
     Messaging.send_to_dashboards(%Events.DomComponents{
       components: components,
-      source: %LiveViewSource{pid: self(), module: module}
+      source: %{pid: self(), cid: nil}
     })
 
     {:halt, socket}
   end
 
-  def handle_event_hook(module, event, params, socket) do
+  def handle_event_hook(_module, event, params, socket) do
     Messaging.send_to_dashboards(%Events.HandleEvent{
       event: event,
       params: params,
-      source: %LiveViewSource{pid: self(), module: module}
+      source: %{pid: self(), cid: nil}
     })
 
     {:cont, socket}

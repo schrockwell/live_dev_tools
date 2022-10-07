@@ -5,8 +5,6 @@ defmodule LiveDevTools.DashboardPage do
   alias Phoenix.LiveDashboard.PageBuilder
 
   alias LiveDevTools.Events
-  alias LiveDevTools.LiveComponentSource
-  alias LiveDevTools.LiveViewSource
   alias LiveDevTools.Messaging
 
   @impl PageBuilder
@@ -15,50 +13,52 @@ defmodule LiveDevTools.DashboardPage do
       Messaging.register_dashboard()
     end
 
-    socket = assign(socket, sources: %{})
+    socket = assign(socket, views: [])
 
     {:ok, socket}
   end
 
   @impl PageBuilder
   def handle_info(%Events.Mount{} = event, socket) do
-    with %LiveViewSource{pid: pid} <- event.source do
-      Process.monitor(pid)
+    # New LiveView to watch!
+    if event.source.cid == nil do
+      Process.monitor(event.source.pid)
     end
 
-    source = %{
+    view = %{
+      cid: event.source.cid,
+      dom_id: nil,
       log: [event],
+      module: event.module,
       parent_cid: nil,
-      dom_id: nil
+      pid: event.source.pid
     }
 
-    sources = Map.put(socket.assigns.sources, event.source, source)
-
-    {:noreply, assign(socket, sources: sources)}
+    {:noreply, assign(socket, views: [view | socket.assigns.views])}
   end
 
   def handle_info(%Events.DomComponents{source: %{pid: pid}, components: components}, socket) do
-    updated_sources =
-      socket.assigns.sources
-      |> Enum.flat_map(fn
-        {%LiveComponentSource{pid: ^pid, cid: cid} = source, info} ->
-          component = Enum.find(components, &(&1.cid == cid))
+    updated_views =
+      Enum.flat_map(socket.assigns.views, fn
+        %{cid: nil} = view ->
+          # LiveView, so keep it
+          [view]
 
-          if component do
+        %{pid: ^pid} = view ->
+          if component = Enum.find(components, &(&1.cid == view.cid)) do
             # This component info is a known pid and cid, so update it
-            [{source, %{info | parent_cid: component.parent_cid, dom_id: component.dom_id}}]
+            [%{view | parent_cid: component.parent_cid, dom_id: component.dom_id}]
           else
             # The the cid went away, so discard it
             []
           end
 
         other ->
-          # This is a LiveComponent for another pid OR a LiveView, so keep it
+          # This is a LiveComponent for another pid, so leave it
           [other]
       end)
-      |> Map.new()
 
-    {:noreply, assign(socket, sources: updated_sources)}
+    {:noreply, assign(socket, views: updated_views)}
   end
 
   def handle_info(%struct{} = event, socket)
@@ -69,16 +69,12 @@ defmodule LiveDevTools.DashboardPage do
              Events.Render,
              Events.Update
            ] do
-    if tracked_source?(event, socket) do
-      {:noreply, append_event(socket, event)}
-    else
-      {:noreply, socket}
-    end
+    {:noreply, append_event(socket, event)}
   end
 
   def handle_info({:DOWN, _ref, :process, pid, _reason}, socket) do
-    new_sources = Map.reject(socket.assigns.sources, fn {%{pid: key_pid}, _} -> key_pid == pid end)
-    {:noreply, assign(socket, :sources, new_sources)}
+    new_views = Enum.reject(socket.assigns.views, fn %{pid: view_pid} -> view_pid == pid end)
+    {:noreply, assign(socket, :views, new_views)}
   end
 
   def handle_info(_message, socket) do
@@ -98,19 +94,22 @@ defmodule LiveDevTools.DashboardPage do
 
   @impl PageBuilder
   def render_page(assigns) do
-    {LiveDevTools.Dashboard, %{id: "live-dev-tools-dashboard", sources: assigns.sources}}
+    {LiveDevTools.Dashboard, %{id: "live-dev-tools-dashboard", views: assigns.views}}
   end
 
   defp append_event(socket, event) do
-    new_sources =
-      Map.update!(socket.assigns.sources, event.source, fn info ->
-        %{info | log: [event | info.log]}
+    %{pid: event_pid, cid: event_cid} = event.source
+
+    new_views =
+      Enum.map(socket.assigns.views, fn
+        %{pid: ^event_pid, cid: ^event_cid} = view -> %{view | log: [event | view.log]}
+        view -> view
       end)
 
-    assign(socket, :sources, new_sources)
+    assign(socket, :views, new_views)
   end
 
-  defp tracked_source?(event, socket) do
-    event.source in Map.keys(socket.assigns.sources)
-  end
+  # defp tracked_view?(event, socket) do
+  #   Enum.any?(socket.assigns.views, fn view -> Map.take(view, [:pid, :cid]) == event.source end)
+  # end
 end
