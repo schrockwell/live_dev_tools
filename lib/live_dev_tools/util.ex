@@ -1,6 +1,18 @@
 defmodule LiveDevTools.Util do
   @moduledoc false
 
+  def random_id do
+    Base.encode64(:crypto.strong_rand_bytes(10), padding: false)
+  end
+
+  def put_id(socket, id) do
+    # TODO: Support LiveView 0.18 with Phoenix.LiveComponent.assign/3
+    Phoenix.LiveView.assign(socket, :__live_dev_tools_id__, id)
+  end
+
+  def get_id(%Phoenix.LiveView.Socket{} = socket), do: get_id(socket.assigns)
+  def get_id(assigns), do: assigns.__live_dev_tools_id__
+
   def module_name(module) when is_atom(module) do
     Application.get_env(:live_dev_tools, :prefixes, [])
     |> Enum.map(fn prefix -> "#{inspect(prefix)}." end)

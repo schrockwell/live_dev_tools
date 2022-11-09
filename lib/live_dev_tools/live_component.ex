@@ -20,29 +20,32 @@ defmodule LiveDevTools.LiveComponent do
         defoverridable mount: 1
 
         def mount(socket) do
-          if connected?(socket) do
-            LiveDevTools.Messaging.send_to_dashboards(%LiveDevTools.Events.Mount{
-              module: __MODULE__,
-              source: %{pid: self(), cid: socket.assigns.myself.cid}
-            })
-          end
-
-          super(socket)
+          socket
+          |> LiveDevTools.LiveComponent.__handle_mount__()
+          |> super()
         end
       end
     else
       quote do
         def mount(socket) do
-          if connected?(socket) do
-            LiveDevTools.Messaging.send_to_dashboards(%LiveDevTools.Events.Mount{
-              module: __MODULE__,
-              source: %{pid: self(), cid: socket.assigns.myself.cid}
-            })
-          end
-
-          {:ok, socket}
+          {:ok, LiveDevTools.LiveComponent.__handle_mount__(socket)}
         end
       end
+    end
+  end
+
+  def __handle_mount__(socket) do
+    if Phoenix.LiveView.connected?(socket) do
+      id = LiveDevTools.Util.random_id()
+
+      LiveDevTools.Messaging.send_to_dashboards(%LiveDevTools.Events.Mount{
+        module: __MODULE__,
+        source: %{pid: self(), cid: socket.assigns.myself.cid, id: id}
+      })
+
+      LiveDevTools.Util.put_id(socket, id)
+    else
+      socket
     end
   end
 
@@ -52,27 +55,28 @@ defmodule LiveDevTools.LiveComponent do
         defoverridable update: 2
 
         def update(assigns, socket) do
-          LiveDevTools.Messaging.send_to_dashboards(%LiveDevTools.Events.Update{
-            assigns: assigns,
-            source: %{pid: self(), cid: socket.assigns.myself.cid}
-          })
-
-          super(assigns, socket)
+          super(assigns, LiveDevTools.LiveComponent.__handle_update__(socket, assigns))
         end
       end
     else
       quote do
         def update(assigns, socket) do
-          LiveDevTools.Messaging.send_to_dashboards(%LiveDevTools.Events.Update{
-            assigns: assigns,
-            source: %{pid: self(), cid: socket.assigns.myself.cid}
-          })
-
-          {:ok, assign(socket, assigns)}
+          {:ok, socket |> LiveDevTools.LiveComponent.__handle_update__(assigns) |> assign(assigns)}
         end
       end
     end
   end
+
+  def __handle_update__(socket, %{__live_dev_tools_id__: id} = assigns) do
+    LiveDevTools.Messaging.send_to_dashboards(%LiveDevTools.Events.Update{
+      assigns: assigns,
+      source: %{pid: self(), cid: socket.assigns.myself.cid, id: id}
+    })
+
+    socket
+  end
+
+  def __handle_update__(socket, _assigns), do: socket
 
   defp wrap_handle_event(env) do
     if Module.defines?(env.module, {:handle_event, 3}) do
@@ -83,7 +87,7 @@ defmodule LiveDevTools.LiveComponent do
           LiveDevTools.Messaging.send_to_dashboards(%LiveDevTools.Events.HandleEvent{
             event: event,
             params: params,
-            source: %{pid: self(), cid: socket.assigns.myself.cid}
+            source: %{pid: self(), cid: socket.assigns.myself.cid, id: LiveDevTools.Util.get_id(socket)}
           })
 
           super(event, params, socket)
@@ -95,7 +99,7 @@ defmodule LiveDevTools.LiveComponent do
           LiveDevTools.Messaging.send_to_dashboards(%LiveDevTools.Events.HandleEvent{
             event: event,
             params: params,
-            source: %{pid: self(), cid: socket.assigns.myself.cid}
+            source: %{pid: self(), cid: socket.assigns.myself.cid, id: LiveDevTools.Util.get_id(socket)}
           })
 
           {:noreply, socket}
@@ -109,13 +113,20 @@ defmodule LiveDevTools.LiveComponent do
       defoverridable render: 1
 
       def render(assigns) do
-        LiveDevTools.Messaging.send_to_dashboards(%LiveDevTools.Events.Render{
-          assigns: assigns,
-          source: %{pid: self(), cid: assigns.myself.cid}
-        })
-
+        LiveDevTools.LiveComponent.__handle_render__(assigns)
         super(assigns)
       end
     end
   end
+
+  def __handle_render__(%{__live_dev_tools_id__: id} = assigns) do
+    LiveDevTools.Messaging.send_to_dashboards(%LiveDevTools.Events.Render{
+      assigns: assigns,
+      source: %{pid: self(), cid: assigns.myself.cid, id: id}
+    })
+
+    :ok
+  end
+
+  def __handle_render__(_assigns), do: :ok
 end

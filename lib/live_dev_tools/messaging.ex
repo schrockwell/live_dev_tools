@@ -10,6 +10,7 @@ defmodule LiveDevTools.Messaging do
 
   def register_dashboard do
     Registry.register(@registry, :dashboard, nil)
+    :ok
   end
 
   def send_to_dashboards(message) do
@@ -17,4 +18,6 @@ defmodule LiveDevTools.Messaging do
       for {pid, _} <- entries, do: send(pid, message)
     end)
   end
+
+  :ok
 end

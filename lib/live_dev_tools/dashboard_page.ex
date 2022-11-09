@@ -26,6 +26,7 @@ defmodule LiveDevTools.DashboardPage do
     end
 
     view = %{
+      id: event.source.id,
       cid: event.source.cid,
       dom_id: nil,
       log: [event],
@@ -69,7 +70,8 @@ defmodule LiveDevTools.DashboardPage do
              Events.Render,
              Events.Update
            ] do
-    {:noreply, append_event(socket, event)}
+    {:noreply, socket}
+    # {:noreply, append_event(socket, event)}
   end
 
   def handle_info({:DOWN, _ref, :process, pid, _reason}, socket) do
@@ -82,8 +84,8 @@ defmodule LiveDevTools.DashboardPage do
   end
 
   @impl PageBuilder
-  def handle_event("form-changed", params, socket) do
-    IO.inspect(params)
+  def handle_event("change", params, socket) do
+    IO.inspect(params, label: "change")
     {:noreply, socket}
   end
 

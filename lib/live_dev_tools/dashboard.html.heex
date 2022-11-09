@@ -3,7 +3,21 @@
     Waiting for a LiveView to mount...
   <% end %>
 
-  <%= for view <- live_views(@views) do %>
-    <.live_component module={SourceNode} id={source_slug(view)} views={@views} view={view} expanded?={true} />
-  <% end %>
+  <form phx-change="change">
+    <select id="view-select" name="view-select">
+      <%= for view <- @views do %>
+        <option id={view.id} value={view.id}><%= source_name(view) %></option>
+      <% end %>
+    </select>
+  </form>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', function() {
+      // Blur the <select> because LiveView won't update it when focused
+      const viewSelect = document.getElementById('view-select');
+      viewSelect.addEventListener('focus', function() {
+        viewSelect.blur();
+      });
+    });
+  </script>
 </div>
